@@ -1,0 +1,19 @@
+# Binaries
+/bin/
+/dist/
+*.exe
+*.test
+*.out
+
+# Local environment
+.env
+.env.*
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Go workspace/cache
+vendor/
