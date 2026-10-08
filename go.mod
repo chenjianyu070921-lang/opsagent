@@ -3,6 +3,7 @@ module opsagent
 go 1.26.0
 
 require (
+	github.com/sashabaranov/go-openai v1.43.0
 	github.com/spf13/cobra v1.10.2
 	k8s.io/api v0.37.1
 	k8s.io/apimachinery v0.37.1

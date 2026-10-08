@@ -11,6 +11,7 @@ import (
 
 	"opsagent/internal/diagnose"
 	"opsagent/internal/kubernetes"
+	"opsagent/internal/llm"
 	"opsagent/internal/report"
 )
 
@@ -28,6 +29,8 @@ var diagnoseCmd = &cobra.Command{
 		since, _ := cmd.Flags().GetDuration("since")
 		tail, _ := cmd.Flags().GetInt64("tail")
 		output, _ := cmd.Flags().GetString("output")
+		useLLM, _ := cmd.Flags().GetBool("llm")
+		modelOverride, _ := cmd.Flags().GetString("llm-model")
 
 		client, err := kubernetes.NewClient(kubeconfig)
 		if err != nil {
@@ -43,9 +46,27 @@ var diagnoseCmd = &cobra.Command{
 		}
 
 		findings, evidence := diagnose.RunRules(snap)
+
+		// LLM 分析默认关闭；开启时即使调用失败也不影响规则报告，只在 stderr 提示。
+		var analysis *llm.Analysis
+		if useLLM {
+			cfg, err := llm.LoadConfig()
+			if err != nil {
+				return err
+			}
+			if modelOverride != "" {
+				cfg.Model = modelOverride
+			}
+			analysis, err = llm.Analyze(cmd.Context(), cfg, snap, findings, evidence)
+			if err != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "警告: %v，本次仅输出规则分析\n\n", err)
+				analysis = nil
+			}
+		}
+
 		switch output {
 		case "markdown":
-			fmt.Fprintln(cmd.OutOrStdout(), report.RenderMarkdown(snap, findings, evidence))
+			fmt.Fprintln(cmd.OutOrStdout(), report.RenderMarkdown(snap, findings, evidence, analysis))
 		case "table":
 			renderTable(cmd.OutOrStdout(), snap)
 		default:
@@ -89,6 +110,8 @@ func init() {
 	diagnoseCmd.Flags().Duration("since", 30*time.Minute, "日志采集的时间窗口")
 	diagnoseCmd.Flags().Int64("tail", 100, "每个容器最多取的日志行数")
 	diagnoseCmd.Flags().StringP("output", "o", "markdown", "输出格式: markdown、table")
+	diagnoseCmd.Flags().Bool("llm", false, "启用 LLM 根因分析（需配置 OPSAGENT_LLM_* 环境变量）")
+	diagnoseCmd.Flags().String("llm-model", "", "覆盖 OPSAGENT_LLM_MODEL 指定的模型")
 }
 
 // renderTable 以表格形式输出 Pod 摘要，并附上各 Pod 的 Warning 事件。

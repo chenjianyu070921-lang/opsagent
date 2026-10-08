@@ -6,10 +6,12 @@ import (
 	"strings"
 
 	"opsagent/internal/diagnose"
+	"opsagent/internal/llm"
 )
 
-// RenderMarkdown 生成 Markdown 诊断报告：结论摘要、发现详情（含建议与风险）、证据链。
-func RenderMarkdown(snap *diagnose.Snapshot, findings []diagnose.Finding, evidence []diagnose.Evidence) string {
+// RenderMarkdown 生成 Markdown 诊断报告：结论摘要、发现详情（含建议与风险）、
+// LLM 根因分析（开启时）、证据链。
+func RenderMarkdown(snap *diagnose.Snapshot, findings []diagnose.Finding, evidence []diagnose.Evidence, analysis *llm.Analysis) string {
 	var b strings.Builder
 
 	target := "all pods"
@@ -29,6 +31,7 @@ func RenderMarkdown(snap *diagnose.Snapshot, findings []diagnose.Finding, eviden
 
 	if len(findings) == 0 {
 		b.WriteString("## 结论\n\n未发现确定性异常。\n\n")
+		writeLLMAnalysis(&b, analysis)
 		writeOverview(&b, snap)
 		b.WriteString("\n")
 		writeEvidence(&b, evidence)
@@ -53,10 +56,22 @@ func RenderMarkdown(snap *diagnose.Snapshot, findings []diagnose.Finding, eviden
 		b.WriteString("\n")
 	}
 
+	writeLLMAnalysis(&b, analysis)
 	writeOverview(&b, snap)
 	b.WriteString("\n")
 	writeEvidence(&b, evidence)
 	return b.String()
+}
+
+// writeLLMAnalysis 渲染模型的根因分析；未开启 LLM 时不输出该章节。
+func writeLLMAnalysis(b *strings.Builder, analysis *llm.Analysis) {
+	if analysis == nil {
+		return
+	}
+	b.WriteString("## LLM 根因分析\n\n")
+	b.WriteString(fmt.Sprintf("> 由模型 %s 基于上文证据生成，仅供参考；请结合证据链自行判断。\n\n", analysis.Model))
+	b.WriteString(strings.TrimSpace(analysis.Content))
+	b.WriteString("\n\n")
 }
 
 // writeOverview 附加资源概况，让"无异常"时报告也有信息量。

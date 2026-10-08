@@ -34,7 +34,27 @@ opsagent diagnose -o table
 
 输出为 Markdown 诊断报告：结论摘要、发现详情（解释 / 建议 / 风险提示）、证据链。
 
-目前规则引擎可识别：CrashLoopBackOff、ImagePullBackOff、OOMKilled、Pending 调度失败、探针失败、Deployment 发布失败；LLM 分析和 Service 诊断将在后续版本加入。
+规则引擎可识别：CrashLoopBackOff、ImagePullBackOff、OOMKilled、Pending 调度失败、探针失败、Deployment 发布失败。
+
+## LLM 根因分析
+
+加 `--llm` 让模型基于规则结论和证据汇总根因候选（默认关闭，离线可用）：
+
+```bash
+opsagent diagnose pod/payment-api-xxx -n production --llm
+```
+
+需要配置环境变量（模型走 OpenAI 兼容接口，如火山方舟）：
+
+| 变量 | 说明 |
+|---|---|
+| `OPSAGENT_LLM_BASE_URL` | OpenAI 兼容接口地址 |
+| `OPSAGENT_LLM_API_KEY` | API Key |
+| `OPSAGENT_LLM_MODEL` | 模型 ID |
+
+可用 `--llm-model` 临时覆盖模型。发给模型前会自动脱敏（API Key、Token、私钥等）；模型调用失败时自动降级为纯规则报告。
+
+Service 诊断、TUI、MCP 等能力将在后续版本加入，详见 [路线图](docs/roadmap.md)。
 
 ## 文档
 
