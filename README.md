@@ -15,17 +15,26 @@ OpsAgent 是一个用 Go 编写的 Kubernetes/后端运维排障 Agent。
 ## 快速验证
 
 ```bash
-go run ./cmd/opsagent
+go run ./cmd/opsagent diagnose pod/<pod-name> -n <namespace>
 ```
 
-## 计划中的命令
+## 用法
 
 ```bash
+# 诊断指定 Pod（斜杠形式，也可写 diagnose pod <name>）
 opsagent diagnose pod/payment-api-xxx -n production --since 30m
+
+# 诊断 Deployment：自动关联其 Pod，采集状态、事件和可疑容器日志
 opsagent diagnose deployment/payment-api -n production
-opsagent diagnose service/payment-api -n production
-opsagent report --last
+
+# 诊断整个命名空间，或用表格快速浏览
+opsagent diagnose -n production
+opsagent diagnose -o table
 ```
+
+输出为 Markdown 诊断报告：结论摘要、发现详情（解释 / 建议 / 风险提示）、证据链。
+
+目前规则引擎可识别：CrashLoopBackOff、ImagePullBackOff、OOMKilled、Pending 调度失败、探针失败、Deployment 发布失败；LLM 分析和 Service 诊断将在后续版本加入。
 
 ## 文档
 

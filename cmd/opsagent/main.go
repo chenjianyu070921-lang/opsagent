@@ -1,7 +1,7 @@
 package main
 
-import "fmt"
+import "opsagent/internal/cli"
 
 func main() {
-	fmt.Println("opsagent - Kubernetes operations troubleshooting agent")
+	cli.Execute()
 }
