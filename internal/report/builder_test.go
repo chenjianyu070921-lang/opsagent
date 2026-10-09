@@ -31,6 +31,27 @@ func TestNeutralizeCitations(t *testing.T) {
 	if stringsContains(got, "ev-7]") && !stringsContains(got, "无效引用") {
 		t.Errorf("原始引用不应原样保留: %q", got)
 	}
+
+	// 无效编号是另一合法编号的真前缀时，不得误伤合法编号。
+	prefix := report.NeutralizeCitations("见 [ev-1] 和 [ev-10]", []string{"ev-1"})
+	if !stringsContains(prefix, "ev-1（无效引用）") {
+		t.Errorf("ev-1 应被标注，实际 %q", prefix)
+	}
+	if !stringsContains(prefix, "[ev-10]") {
+		t.Errorf("合法的 ev-10 应保持原样，实际 %q", prefix)
+	}
+	if stringsContains(prefix, "ev-10（无效引用）") {
+		t.Errorf("ev-10 不应被标注，实际 %q", prefix)
+	}
+
+	// 两个无效编号互为前缀时，不得双重包裹。
+	both := report.NeutralizeCitations("[ev-1] [ev-11]", []string{"ev-1", "ev-11"})
+	if !stringsContains(both, "ev-1（无效引用）") || !stringsContains(both, "ev-11（无效引用）") {
+		t.Errorf("ev-1、ev-11 均应被标注，实际 %q", both)
+	}
+	if stringsContains(both, "1（无效引用）1") {
+		t.Errorf("ev-11 不应被双重包裹，实际 %q", both)
+	}
 }
 
 func TestBuildDocument(t *testing.T) {

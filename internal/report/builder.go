@@ -28,10 +28,19 @@ func ValidateCitations(content string, valid map[string]bool) []string {
 
 // NeutralizeCitations 把无效编号替换为"编号（无效引用）"，保留模型原文以便审计。
 func NeutralizeCitations(content string, invalid []string) string {
-	for _, id := range invalid {
-		content = strings.ReplaceAll(content, id, id+"（无效引用）")
+	if len(invalid) == 0 {
+		return content
 	}
-	return content
+	invalidSet := make(map[string]bool, len(invalid))
+	for _, id := range invalid {
+		invalidSet[id] = true
+	}
+	return citationPattern.ReplaceAllStringFunc(content, func(match string) string {
+		if invalidSet[match] {
+			return match + "（无效引用）"
+		}
+		return match
+	})
 }
 
 // BuildDocument 由快照、发现、证据和 LLM 分析组装 Document。
