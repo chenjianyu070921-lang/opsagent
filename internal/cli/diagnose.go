@@ -85,7 +85,7 @@ var diagnoseCmd = &cobra.Command{
 			}
 		}
 
-		// 历史库 best-effort：打不开只警告，不影响诊断。
+		// 历史库 best-effort：打不开时告警进 notice 区，不阻断诊断。
 		var repo storage.Repository
 		dbPath, _ := cmd.Flags().GetString("history-db")
 		if dbPath == "" {
@@ -94,10 +94,9 @@ var diagnoseCmd = &cobra.Command{
 		if dbPath == "" {
 			dbPath, _ = storage.DefaultPath()
 		}
-		if db, oerr := storage.Open(dbPath); oerr != nil {
-			fmt.Fprintf(cmd.ErrOrStderr(), "警告: 历史数据库不可用（%v），本次不保存历史\n\n", oerr)
-		} else {
-			repo = db
+		repo, notice := openHistoryRepoBestEffort(dbPath)
+		if repo == nil && notice != "" {
+			preNotices = append(preNotices, notice)
 		}
 
 		target := parseTarget(args)

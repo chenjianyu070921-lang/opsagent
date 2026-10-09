@@ -37,7 +37,10 @@ var historyListCmd = &cobra.Command{
 		}
 		defer closeFn()
 
-		namespace, _ := cmd.Flags().GetString("namespace")
+		namespace := ""
+		if cmd.Flags().Changed("namespace") {
+			namespace, _ = cmd.Flags().GetString("namespace")
+		}
 		summaries, err := repo.List(ctx, namespace, 50)
 		if err != nil {
 			return err
@@ -114,6 +117,15 @@ func openRepo(cmd *cobra.Command) (storage.Repository, func(), error) {
 		return nil, nil, fmt.Errorf("打开历史数据库失败: %w", err)
 	}
 	return db, func() { db.Close() }, nil
+}
+
+// openHistoryRepoBestEffort 尽力打开历史库；失败时返回 nil 仓储与一条 notice（不阻断诊断）。
+func openHistoryRepoBestEffort(dbPath string) (storage.Repository, string) {
+	db, err := storage.Open(dbPath)
+	if err != nil {
+		return nil, fmt.Sprintf("历史数据库不可用（%v），本次不保存历史", err)
+	}
+	return db, ""
 }
 
 // loadHistoryDocument 读取一条记录并把 payload 反序列化为 Document。
