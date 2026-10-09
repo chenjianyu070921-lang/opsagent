@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>{{.Title}} - {{.TargetDisplay}}</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; margin: 2rem auto; max-width: 960px; color: #1f2937; line-height: 1.6; }
+  h1 { border-bottom: 2px solid #e5e7eb; padding-bottom: .4rem; }
+  h2 { margin-top: 2rem; color: #111827; }
+  .notice { background: #fef3c7; border-left: 4px solid #f59e0b; padding: .5rem 1rem; margin: .5rem 0; border-radius: 2px; }
+  .finding { border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem; margin: 1rem 0; }
+  .finding .sev-critical { color: #b91c1c; font-weight: 700; }
+  .finding .sev-high { color: #c2410c; font-weight: 700; }
+  details.evidence { border: 1px solid #e5e7eb; border-radius: 4px; margin: .5rem 0; padding: .5rem 1rem; }
+  details.evidence summary { cursor: pointer; font-weight: 600; }
+  pre { background: #f9fafb; border-radius: 4px; padding: .8rem; overflow-x: auto; font-size: .85rem; }
+  a { color: #2563eb; }
+  .meta { color: #6b7280; font-size: .9rem; }
+  .llm { background: #eff6ff; border-left: 4px solid #3b82f6; padding: .5rem 1rem; border-radius: 2px; }
+</style>
+</head>
+<body>
+<h1>{{.Title}}</h1>
+<p class="meta">
+  诊断对象: {{.TargetDisplay}} ｜ 命名空间: {{.Namespace}} ｜
+  采集时间: {{timestamp .GeneratedAt}}
+  {{if .MetricSource}} ｜ 指标来源: {{.MetricSource}}{{end}}
+</p>
+
+{{if .Notices}}
+<h2>提示</h2>
+{{range .Notices}}<div class="notice">{{.}}</div>{{end}}
+{{end}}
+
+{{if .Findings}}
+<h2>结论摘要</h2>
+<ol>
+{{range .Findings}}
+  <li><span class="sev-{{severityClass .Severity}}">[{{.Severity}}]</span> {{.Title}}（{{.Subject}}）</li>
+{{end}}
+</ol>
+
+<h2>发现详情</h2>
+{{range .Findings}}
+<div class="finding">
+  <h3>{{.Title}}</h3>
+  <p><strong>严重程度:</strong> <span class="sev-{{severityClass .Severity}}">{{.Severity}}</span></p>
+  <p><strong>对象:</strong> {{.Subject}}</p>
+  <p><strong>分析:</strong> {{linkify .Explanation}}</p>
+  <p><strong>建议:</strong> {{.Suggestion}}</p>
+  <p><strong>风险提示:</strong> {{.Risk}}</p>
+</div>
+{{end}}
+{{else}}
+<h2>结论</h2>
+<p>未发现确定性异常。</p>
+{{end}}
+
+{{with .LLM}}
+<h2>LLM 根因分析</h2>
+<div class="llm">
+<p class="meta">由模型 {{.Model}} 基于证据生成，仅供参考；请结合证据链自行判断。</p>
+{{markdown .ContentMD}}
+</div>
+{{end}}
+
+{{if .Overview}}
+<h2>资源概况</h2>
+<ul>
+{{range .Overview}}<li>{{.Name}}: {{.Detail}}</li>{{end}}
+</ul>
+{{end}}
+
+{{if .Evidence}}
+<h2>证据链</h2>
+{{range .Evidence}}
+<details class="evidence">
+  <summary id="{{.ID}}">[{{.ID}}] {{.Source}} — {{.Summary}}{{if .Timestamp}}（{{timestamp .Timestamp}}）{{end}}</summary>
+  {{if .Detail}}<pre>{{.Detail}}</pre>{{end}}
+  {{range .Links}}<p><a href="{{.URL}}" target="_blank" rel="noopener">{{.Label}}</a></p>{{end}}
+</details>
+{{end}}
+{{end}}
+</body>
+</html>

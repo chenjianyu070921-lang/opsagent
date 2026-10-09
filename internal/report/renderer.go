@@ -50,11 +50,3 @@ func (MarkdownRenderer) Render(w io.Writer, doc *Document) error {
 	_, err := io.WriteString(w, RenderMarkdown(doc))
 	return err
 }
-
-// HTMLRenderer 将在 Task 8 实现；此处为保持中间状态可编译的临时占位。
-type HTMLRenderer struct{}
-
-// Render 临时返回未就绪错误；Task 8 替换为真实实现。
-func (HTMLRenderer) Render(w io.Writer, doc *Document) error {
-	return fmt.Errorf("HTML 渲染迁移中，请在后续任务完成后使用")
-}
