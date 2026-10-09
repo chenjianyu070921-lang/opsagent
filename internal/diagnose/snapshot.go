@@ -9,6 +9,7 @@ import (
 	k8sclient "k8s.io/client-go/kubernetes"
 
 	"opsagent/internal/kubernetes"
+	"opsagent/internal/prometheus"
 )
 
 // Target 表示一次诊断的对象。
@@ -29,8 +30,13 @@ type Snapshot struct {
 	// Events 按 Pod 名索引该 Pod 的 Warning 事件。
 	Events map[string][]kubernetes.WarningEvent
 	// Logs 按 Pod 名 → 容器名索引可疑容器日志。
-	Logs        map[string]map[string]kubernetes.ContainerLog
-	CollectedAt time.Time
+	Logs map[string]map[string]kubernetes.ContainerLog
+	// Prometheus 指标阶段产生的现场：地址、Grafana 地址、查询窗口与按 pod/container 索引的指标。
+	PrometheusURL string
+	GrafanaURL    string
+	MetricsWindow time.Duration
+	Metrics       map[string]map[string]*prometheus.ContainerMetrics
+	CollectedAt   time.Time
 }
 
 // Collect 按诊断对象采集基础资源、事件和可疑容器日志，构成快照。
@@ -116,13 +122,23 @@ func collectPodEvidence(ctx context.Context, client k8sclient.Interface, snap *S
 	return nil
 }
 
+// EvidenceLink 是证据指向的外部系统链接。
+type EvidenceLink struct {
+	Type  string // graph / grafana / promql
+	Label string
+	URL   string
+}
+
 // Evidence 是一条可被结论引用的证据。
 type Evidence struct {
 	ID      string // ev-1、ev-2…，由 EvidenceSet 分配
-	Kind    string // status / event / log / deployment
+	Kind    string // status / event / log / deployment / metric
 	Source  string // pod/xxx、pod/xxx container/yyy、deployment/xxx
 	Summary string
 	Detail  string
+	// Timestamp 为证据观测时刻；Links 为源系统（Prometheus/Grafana）链接。
+	Timestamp *time.Time
+	Links     []EvidenceLink
 }
 
 // EvidenceSet 是证据收集器，供规则注册证据并拿回 ID；按 Kind+Source+Summary 去重。
@@ -136,17 +152,21 @@ func NewEvidenceSet() *EvidenceSet {
 	return &EvidenceSet{index: make(map[string]string)}
 }
 
-// Add 注册一条证据；若内容相同的证据已存在则直接返回其 ID。
+// Add 注册一条证据；签名与 Phase 1 保持一致，时间戳由 RunRules 统一回填。
 func (s *EvidenceSet) Add(kind, source, summary, detail string) string {
-	key := kind + "|" + source + "|" + summary
+	return s.AddWith(Evidence{Kind: kind, Source: source, Summary: summary, Detail: detail})
+}
+
+// AddWith 注册带完整元数据（时间戳、链接）的证据；内容相同的证据已存在则返回其 ID。
+func (s *EvidenceSet) AddWith(ev Evidence) string {
+	key := ev.Kind + "|" + ev.Source + "|" + ev.Summary
 	if id, ok := s.index[key]; ok {
 		return id
 	}
 	id := fmt.Sprintf("ev-%d", len(s.items)+1)
+	ev.ID = id
 	s.index[key] = id
-	s.items = append(s.items, Evidence{
-		ID: id, Kind: kind, Source: source, Summary: summary, Detail: detail,
-	})
+	s.items = append(s.items, ev)
 	return id
 }
 

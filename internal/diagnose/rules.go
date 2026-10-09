@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"opsagent/internal/kubernetes"
 )
@@ -60,10 +61,69 @@ func RunRules(snap *Snapshot) ([]Finding, []Evidence) {
 		}
 	}
 	findings = append(findings, podNotReadyRule(snap, evidence, covered)...)
+	// OOM 已覆盖的容器不再单独报内存压力，避免同一现象重复成条。
+	findings = removeMemoryPressureUnderOOM(findings)
 	sort.SliceStable(findings, func(i, j int) bool {
 		return severityRank(findings[i].Severity) < severityRank(findings[j].Severity)
 	})
+	fillEvidenceTimestamps(snap, evidence)
 	return findings, evidence.List()
+}
+
+// removeMemoryPressureUnderOOM 删除与 OOM 发现对象相同的内存压力发现。
+func removeMemoryPressureUnderOOM(findings []Finding) []Finding {
+	oomSubjects := map[string]bool{}
+	for _, f := range findings {
+		if f.Category == "oom" {
+			oomSubjects[f.Subject] = true
+		}
+	}
+	out := findings[:0]
+	for _, f := range findings {
+		if f.Category == "memory-pressure" && oomSubjects[f.Subject] {
+			continue
+		}
+		out = append(out, f)
+	}
+	return out
+}
+
+// fillEvidenceTimestamps 为全部证据补齐观测时刻：
+// 事件证据取事件自身 LastTimestamp，其余缺省为快照采集时刻。
+func fillEvidenceTimestamps(snap *Snapshot, set *EvidenceSet) {
+	for i := range set.items {
+		ev := &set.items[i]
+		if ev.Timestamp != nil {
+			continue
+		}
+		t := snap.CollectedAt
+		if ev.Kind == "event" {
+			if ts, ok := eventTimestamp(snap, ev.Source, ev.Detail); ok {
+				t = ts
+			}
+		}
+		ev.Timestamp = &t
+	}
+}
+
+// eventTimestamp 按证据来源与内容（事件 Message）反查事件时间。
+func eventTimestamp(snap *Snapshot, source, detail string) (time.Time, bool) {
+	switch {
+	case strings.HasPrefix(source, "pod/"):
+		podName := strings.TrimPrefix(source, "pod/")
+		for _, e := range snap.Events[podName] {
+			if e.Message == detail {
+				return e.LastTimestamp, true
+			}
+		}
+	case strings.HasPrefix(source, "deployment/"):
+		for _, e := range snap.DeploymentEvents {
+			if e.Message == detail {
+				return e.LastTimestamp, true
+			}
+		}
+	}
+	return time.Time{}, false
 }
 
 func severityRank(s Severity) int {
