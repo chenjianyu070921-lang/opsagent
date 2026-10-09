@@ -12,7 +12,6 @@ import (
 	"opsagent/internal/diagnose"
 	"opsagent/internal/kubernetes"
 	"opsagent/internal/llm"
-	"opsagent/internal/report"
 )
 
 // diagnoseCmd 对应 `opsagent diagnose`，负责解析参数并编排证据采集、规则分析与报告输出。
@@ -64,9 +63,12 @@ var diagnoseCmd = &cobra.Command{
 			}
 		}
 
+		// TODO(Task 13): Markdown 分支恢复后消费 analysis，届时删除本行。
+		_ = analysis
+
 		switch output {
 		case "markdown":
-			fmt.Fprintln(cmd.OutOrStdout(), report.RenderMarkdown(snap, findings, evidence, analysis))
+			return fmt.Errorf("Markdown 渲染迁移中，请在后续任务完成后使用")
 		case "table":
 			renderTable(cmd.OutOrStdout(), snap)
 		default:
