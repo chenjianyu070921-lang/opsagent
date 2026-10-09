@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"opsagent/internal/kubernetes"
+	"opsagent/internal/prometheus"
 )
 
 // Severity 表示发现的严重程度。
@@ -43,6 +44,8 @@ var rules = []Rule{
 	pendingPodRule,
 	probeFailureRule,
 	deploymentRule,
+	memoryTrendRule,
+	cpuThrottleRule,
 }
 
 // RunRules 执行全部规则，返回按严重度排序的发现和被引用的证据集。
@@ -273,6 +276,19 @@ func oomKilledRule(snap *Snapshot, set *EvidenceSet) []Finding {
 			ids := []string{set.Add("status", containerSource(pod.Name, c.Name), summary, detail)}
 			if id, ok := addLogEvidence(set, snap, pod.Name, c.Name); ok {
 				ids = append(ids, id)
+			}
+			if m := metricFor(snap, pod.Name, c.Name); m != nil && len(m.MemoryWorkingSet) > 0 {
+				end := snap.CollectedAt
+				start := end.Add(-snap.MetricsWindow)
+				promQL := prometheus.MemoryWorkingSetPromQL(snap.Target.Namespace, []string{pod.Name})
+				ids = append(ids, set.AddWith(Evidence{
+					Kind:      "metric",
+					Source:    containerSource(pod.Name, c.Name),
+					Summary:   fmt.Sprintf("容器 %s 内存工作集趋势（%d 个采样点）", c.Name, len(m.MemoryWorkingSet)),
+					Detail:    pointsText(m.MemoryWorkingSet),
+					Timestamp: &snap.CollectedAt,
+					Links:     metricLinks(snap, promQL, start, end),
+				}))
 			}
 
 			limitInfo := "未设置内存 limit"
