@@ -1,7 +1,14 @@
 package main
 
-import "opsagent/internal/cli"
+import (
+	"context"
+	"os"
+
+	"opsagent/internal/cli"
+)
 
 func main() {
-	cli.Execute()
+	if err := cli.Execute(context.Background()); err != nil {
+		os.Exit(1)
+	}
 }
