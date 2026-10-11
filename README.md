@@ -56,6 +56,31 @@ opsagent diagnose pod/payment-api-xxx -n production --llm
 
 Service 诊断、TUI、MCP 等能力将在后续版本加入，详见 [路线图](docs/roadmap.md)。
 
+## 指标与历史记录
+
+诊断时自动查询 Prometheus 指标（内存工作集/limit、CPU 使用与限流），并把每次诊断保存到本地 SQLite：
+
+```bash
+# 指定 Prometheus（默认取 OPSAGENT_PROMETHEUS_URL，集群内自动探测）
+opsagent diagnose pod/payment-api-xxx -n production --prometheus-url http://prometheus:9090
+
+# 查看历史、复现报告、导出 HTML
+opsagent history list
+opsagent history show 1
+opsagent history export 1 -o report.html
+
+# 最近一次诊断
+opsagent diagnose --last
+```
+
+| 变量 | 说明 |
+|---|---|
+| `OPSAGENT_PROMETHEUS_URL` | Prometheus 地址 |
+| `OPSAGENT_GRAFANA_URL` | Grafana 地址，生成 Explore 链接 |
+| `OPSAGENT_HISTORY_DB` | SQLite 文件路径（默认用户配置目录下 opsagent/history.db） |
+
+相关环境变量（`OTEL_EXPORTER_OTLP_ENDPOINT`、`OTEL_SERVICE_NAME` 等）遵循 OpenTelemetry 标准；未配置 OTLP endpoint（OTEL_EXPORTER_OTLP_ENDPOINT / OTEL_EXPORTER_OTLP_TRACES_ENDPOINT）时追踪完全关闭。加 `--export report.md` 或 `--export report.html` 可直接导出报告。
+
 ## 文档
 
 - [项目设计文档](docs/design/2026-10-07-kubernetes-ops-agent.md)

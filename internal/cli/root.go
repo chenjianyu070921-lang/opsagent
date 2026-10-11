@@ -2,7 +2,7 @@
 package cli
 
 import (
-	"os"
+	"context"
 
 	"github.com/spf13/cobra"
 )
@@ -14,15 +14,14 @@ var rootCmd = &cobra.Command{
 	Long:  "opsagent 是一个只读的 Kubernetes 故障诊断工具，采集集群证据并生成分析报告。",
 }
 
-// Execute 由 main 调用，执行命令行解析并运行匹配到的子命令。
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
-	}
+// Execute 把外部 context 注入根命令并执行。
+func Execute(ctx context.Context) error {
+	rootCmd.SetContext(ctx)
+	return rootCmd.Execute()
 }
 
 func init() {
-	// 根命令级别的全局 flag，所有子命令都能访问。
 	rootCmd.PersistentFlags().StringP("namespace", "n", "default", "Kubernetes 命名空间")
 	rootCmd.PersistentFlags().String("kubeconfig", "", "kubeconfig 文件路径（默认用 KUBECONFIG 环境变量或 ~/.kube/config）")
+	rootCmd.PersistentFlags().String("history-db", "", "SQLite 历史数据库路径（默认用户配置目录下 opsagent/history.db，或用 OPSAGENT_HISTORY_DB）")
 }
