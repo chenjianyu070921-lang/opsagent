@@ -9,7 +9,7 @@
 - 接入 LLM 生成分析；
 - 输出 Markdown 报告。
 
-## Phase 2：指标和历史记录
+## Phase 2：指标和历史记录（已完成，2026-10）
 
 - 接入 Prometheus；
 - 使用 SQLite 保存诊断历史；
